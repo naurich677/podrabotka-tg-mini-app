@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(cuid())
+  telegramId        Int      @unique
+  telegramUsername   String?
+  firstName         String?
+  lastName          String?
+  photoUrl          String?
+  role              String   @default("worker") // worker / employer
+  phone             String?
+  phoneVerified     Boolean  @default(false)
+  language          String   @default("ru") // ru / kz
+  city              String   @default("astana")
+  isBlocked         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workerProfile     WorkerProfile?
+  employerProfile   EmployerProfile?
+  jobs              Job[]
+  applications      Application[]
+  reviewsFrom       Review[]  @relation("ReviewsFrom")
+  reviewsTo         Review[]  @relation("ReviewsTo")
+  notifications     Notification[]
+  phoneVerifications PhoneVerification[]
+}
+
+model WorkerProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  birthDate           String?  // ISO date string
+  gender              String?
+  avatar              String?
+  about               String?
+  categories          String   @default("[]") // JSON array string
+  skills              String   @default("[]") // JSON array string
+  rating              Float    @default(0)
+  reviewsCount        Int      @default(0)
+  completedJobs       Int      @default(0)
+  preferredPaymentType String?
+  verificationStatus  String   @default("none") // none / pending / verified
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmployerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  companyName     String?
+  businessType    String?
+  binIin          String?
+  description     String?
+  address         String?
+  city            String   @default("astana")
+  verifiedStatus  String   @default("none") // none / pending / verified
+  rating          Float    @default(0)
+  reviewsCount    Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Job {
+  id                 String   @id @default(cuid())
+  employerId         String
+  title              String
+  category           String
+  description        String   @default("")
+  city               String   @default("astana")
+  district           String?
+  address            String?
+  lat                Float?
+  lng                Float?
+  workDate           String   // ISO date string
+  startTime          String   // "HH:mm"
+  endTime            String   // "HH:mm"
+  paymentAmount      Float
+  paymentCurrency    String   @default("KZT")
+  paymentType        String   @default("daily") // daily / weekly
+  paymentSchedule    String?  // "same_day", "next_day", "end_of_week"
+  workersNeeded      Int      @default(1)
+  workersConfirmed   Int      @default(0)
+  experienceRequired Boolean  @default(false)
+  documentsRequired  Boolean  @default(false)
+  status             String   @default("draft") // draft / active / full / in_progress / completed / cancelled
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  employer    User          @relation(fields: [employerId], references: [id])
+  applications Application[]
+  reviews     Review[]
+}
+
+model Application {
+  id          String    @id @default(cuid())
+  jobId       String
+  workerId    String
+  status      String    @default("applied") // applied / approved / rejected / arrived / no_show / completed / paid
+  appliedAt   DateTime  @default(now())
+  approvedAt  DateTime?
+  arrivedAt   DateTime?
+  completedAt DateTime?
+  paidAt      DateTime?
+  note        String?
+
+  job     Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker  User @relation(fields: [workerId], references: [id])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  jobId      String
+  fromUserId String
+  toUserId   String
+  rating     Int
+  comment    String   @default("")
+  createdAt  DateTime @default(now())
+
+  job      Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fromUser User @relation("ReviewsFrom", fields: [fromUserId], references: [id])
+  toUser   User @relation("ReviewsTo", fields: [toUserId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String   @default("")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PhoneVerification {
+  id                   String   @id @default(cuid())
+  userId               String
+  telegramContactShared Boolean @default(false)
+  phoneNumber          String?
+  verifiedAt           DateTime?
+  source               String?  // telegram_mini_app / telegram_bot
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
